@@ -24,7 +24,7 @@ import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { ammConfig, cpSwapProgram } from "./config";
+import { ammConfig, cpSwapProgram, createPoolFee } from "./config";
 import { CpmmPoolInfoLayout } from "@raydium-io/raydium-sdk-v2";
 import bs58 from "bs58";
 import * as fs from "fs";
@@ -273,6 +273,20 @@ describe("Raydium Pool", () => {
     const token0Mint = NATIVE_MINT;
     const token1Mint = memeMint;
 
+    const raydiumPool = await connection.getAccountInfo(cpSwapProgram);
+    if (!raydiumPool) {
+      throw new Error("Raydium pool not found");
+    }
+    const ammConfigAccount = await connection.getAccountInfo(ammConfig);
+    if (!ammConfigAccount) {
+      throw new Error("AMM config not found");
+    }
+
+    const create_pool_fee = await connection.getAccountInfo(createPoolFee);
+    if (!create_pool_fee) {
+      throw new Error("Create pool fee not found");
+    }
+
     console.log("Starting pool initialization...");
 
     const { userToken0Account, userToken1Account } = await userInfo(
@@ -292,42 +306,47 @@ describe("Raydium Pool", () => {
     const amount0 = new BN(amountForLp * LAMPORTS_PER_SOL);
     const amount1 = await getAccount(connection, userToken1Account.address);
 
-    const { creatorLpToken } = await poolSeedInfo(
-      payer,
-      token0Mint,
-      token1Mint
-    );
+    const {
+      creatorLpToken,
+      raydiumAuthority,
+      raydiumPoolState,
+      raydiumLpMint,
+      token0Vault,
+      token1Vault,
+      observationState,
+    } = await poolSeedInfo(payer, token0Mint, token1Mint);
 
     // Build the initialization instruction
     const initializeIx = await program.methods
       .proxyInitialize(amount0, new BN(amount1.amount))
       .accounts({
+        creator: payer.publicKey,
+        ammConfig: ammConfig,
         token0Mint: token0Mint,
         token1Mint: token1Mint,
-        ammConfig: ammConfig,
         creatorToken0: userToken0Account.address,
         creatorToken1: userToken1Account.address,
         creatorLpToken: creatorLpToken,
       })
-      .instruction();
+      .rpc();
 
-    // Create transaction with both instructions
-    const transaction = new Transaction().add(computeBudgetIx, initializeIx);
+    // // Create transaction with both instructions
+    // const transaction = new Transaction().add(computeBudgetIx, initializeIx);
 
-    // Send transaction with confirmOptions
-    const tx = await sendAndConfirmTransaction(
-      connection,
-      transaction,
-      [payer],
-      confirmOptions
-    );
+    // // Send transaction with confirmOptions
+    // const tx = await sendAndConfirmTransaction(
+    //   connection,
+    //   transaction,
+    //   [payer],
+    //   confirmOptions
+    // // );
     console.log(
       "✅ Pool initialization successful! Transaction signature: ",
-      tx
+      initializeIx
     );
     await userInfo(connection, payer, token0Mint, token1Mint);
   });
-  it.skip("Should initialize target config with admin fees", async () => {
+  it("Should initialize target config with admin fees", async () => {
     // Set fee amounts in basis points
 
     const inputFeeAmountConfig = new BN(100); // 10%

@@ -228,7 +228,6 @@ dependencies = [
  "anchor-lang",
  "mpl-token-metadata",
  "spl-associated-token-account",
- "spl-memo",
  "spl-pod",
  "spl-token",
  "spl-token-2022",
@@ -1174,12 +1173,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "raydium-cpmm-cpi"
+name = "raydium_cp_swap"
 version = "0.1.0"
-source = "git+https://github.com/raydium-io/raydium-cpi?branch=anchor-0.31.0#9a7f52acd4a37d6f54aaaa1d047bbf3523641df3"
 dependencies = [
  "anchor-lang",
- "anchor-spl",
 ]
 
 [[package]]
@@ -1188,7 +1185,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
- "raydium-cpmm-cpi",
+ "raydium_cp_swap",
 ]
 
 [[package]]

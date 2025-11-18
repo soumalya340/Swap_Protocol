@@ -20,4 +20,4 @@ idl-build = ["anchor-lang/idl-build","anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { version = "0.31.0", features = ["init-if-needed"] }
 anchor-spl = { version = "0.31.0", features = ["metadata", "token"] }
-raydium-cpmm-cpi = { git = "https://github.com/raydium-io/raydium-cpi", package = "raydium-cpmm-cpi", branch = "anchor-0.31.0", features = ["devnet"] }
+raydium_cp_swap = { path = "../../libs/raydium_cpmm", features = ["no-entrypoint"] }

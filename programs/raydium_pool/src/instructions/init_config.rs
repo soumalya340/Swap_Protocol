@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 pub const ANCHOR_DISCRIMINATOR: usize = 8;
 pub const DEFAULT_ADMIN_KEY: Pubkey =
-        anchor_lang::solana_program::pubkey!("CvBMs2LEp8KbfCvPNMawR5cFyQ1k9ac7xrtCoxu1Y2gH");
+        anchor_lang::solana_program::pubkey!("AVc4qQbe4mtPAa7DWBm98AGwWHoPSzfx3rWgruhB677z");
 
 /// Handles the initialization of a target configuration.
 /// This function creates a new target configuration account with the specified

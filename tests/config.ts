@@ -6,16 +6,17 @@ import {
 import { PublicKey } from "@solana/web3.js";
 
 export const cpSwapProgram = new PublicKey(
-  "CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW"
+  "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
 );
 
+// Raydium CPMM mainnet create pool fee receiver
 export const createPoolFee = new PublicKey(
-  "G11FKBRaAkHAKuLCgLM6K6NUc9rTjPAznRCjZifrTQe2"
+  "DNXgeM9EiiaAbaWvwjHj9fQQLAX5ZsfHyvmYUNRAdNC8"
 );
 // AMM Config (use Raydium's standard config)
 // AMM Config for 2%
 export const ammConfig = new PublicKey(
-  "9zSzfkYy6awexsHvmggeH36pfVUdDGyCcwmjT3AQPBj6"
+  "D4FPEruKEHrG5TenZ2mpDGEfu1iUvTiqBxvpU8HLBvC2"
 );
 
 export const QUOTE_MINT = NATIVE_MINT;

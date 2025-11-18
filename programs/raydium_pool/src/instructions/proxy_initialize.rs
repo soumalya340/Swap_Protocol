@@ -4,9 +4,9 @@ use anchor_spl::{
     token::Token,
     token_interface::{Mint, TokenAccount},
 };
-use raydium_cpmm_cpi::{
+use raydium_cp_swap::{
     cpi,
-    program::RaydiumCpmm,
+    program::RaydiumCpSwap,
     states::{AmmConfig, OBSERVATION_SEED, POOL_LP_MINT_SEED, POOL_SEED, POOL_VAULT_SEED},
 };
 
@@ -15,6 +15,7 @@ pub fn proxy_initialize(
     init_amount_0: u64,
     init_amount_1: u64,
 ) -> Result<()> {
+    msg!("ProxyInitialize");
     let cpi_accounts = cpi::accounts::Initialize {
         creator: ctx.accounts.creator.to_account_info(),
         amm_config: ctx.accounts.amm_config.to_account_info(),
@@ -47,7 +48,7 @@ pub fn proxy_initialize(
 
 #[derive(Accounts)]
 pub struct ProxyInitialize<'info> {
-    pub cp_swap_program: Program<'info, RaydiumCpmm>,
+    pub cp_swap_program: Program<'info, RaydiumCpSwap>,
     /// Address paying to create the pool. Can be anyone
     #[account(mut)]
     pub creator: Signer<'info>,
@@ -58,7 +59,7 @@ pub struct ProxyInitialize<'info> {
     /// CHECK: pool vault and lp mint authority
     #[account(
         seeds = [
-            raydium_cpmm_cpi::AUTH_SEED.as_bytes(),
+            raydium_cp_swap::AUTH_SEED.as_bytes(),
         ],
         seeds::program = cp_swap_program.key(),
         bump,
@@ -151,7 +152,7 @@ pub struct ProxyInitialize<'info> {
     /// create pool fee account
     #[account(
         mut,
-        address= raydium_cpmm_cpi::create_pool_fee_reveiver::id(),
+        address= raydium_cp_swap::create_pool_fee_reveiver::id(),
     )]
     pub create_pool_fee: Box<InterfaceAccount<'info, TokenAccount>>,
 

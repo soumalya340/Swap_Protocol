@@ -1,9 +1,9 @@
 use crate::instructions::init_config::TargetConfig;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked};
-use raydium_cpmm_cpi::{
+use raydium_cp_swap::{
     cpi,
-    program::RaydiumCpmm,
+    program::RaydiumCpSwap,
     states::{AmmConfig, ObservationState, PoolState},
 };
 
@@ -65,7 +65,7 @@ pub fn proxy_swap_base_input(
     let output_balance_before = ctx.accounts.output_token_account.amount;
 
     // Perform the swap
-    let cpi_accounts = cpi::accounts::Swap {
+    let cpi_accounts = cpi::accounts::SwapBaseInput {
         payer: ctx.accounts.payer.to_account_info(),
         authority: ctx.accounts.authority.to_account_info(),
         amm_config: ctx.accounts.amm_config.to_account_info(),
@@ -119,7 +119,7 @@ pub fn proxy_swap_base_input(
 
 #[derive(Accounts)]
 pub struct ProxySwapBaseInput<'info> {
-    pub cp_swap_program: Program<'info, RaydiumCpmm>,
+    pub cp_swap_program: Program<'info, RaydiumCpSwap>,
 
     /// The user performing the swap
     pub payer: Signer<'info>,
@@ -150,7 +150,7 @@ pub struct ProxySwapBaseInput<'info> {
     /// CHECK: pool vault and lp mint authority
     #[account(
         seeds = [
-            raydium_cpmm_cpi::AUTH_SEED.as_bytes(),
+            raydium_cp_swap::AUTH_SEED.as_bytes(),
         ],
         seeds::program = cp_swap_program.key(),
         bump,
