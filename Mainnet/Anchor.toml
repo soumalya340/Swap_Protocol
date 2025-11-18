@@ -13,7 +13,7 @@ raydium_pool = "D42KWzJLEX3suTfsxF2iPwxoFdza9DH6BynZMeRcY6mT"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
