@@ -36,10 +36,12 @@ pub fn proxy_swap_base_input(
     ctx: Context<ProxySwapBaseInput>,
     amount_in: u64,
     minimum_amount_out: u64,
+    input_fee_bps: u64,  // Fee in basis points (e.g., 100 = 1%)
+    output_fee_bps: u64, // Fee in basis points (e.g., 100 = 1%)
 ) -> Result<()> {
-    // Calculate base token fee
+    // Calculate base token fee using passed parameter
     let input_fee_amount = (amount_in as u128)
-        .checked_mul(ctx.accounts.target_config.input_fee_amount as u128)
+        .checked_mul(input_fee_bps as u128)
         .and_then(|product| product.checked_div(10000))
         .and_then(|result| result.try_into().ok())
         .ok_or(error!(SwapError::CalculationFailure))?;
@@ -92,10 +94,10 @@ pub fn proxy_swap_base_input(
         .checked_sub(output_balance_before)
         .ok_or(error!(SwapError::CalculationFailure))?;
 
-    // Calculate output token fee based on ACTUAL OUTPUT
-    if ctx.accounts.target_config.output_fee_amount > 0 {
+    // Calculate output token fee based on ACTUAL OUTPUT using passed parameter
+    if output_fee_bps > 0 {
         let output_fee_amount = (actual_output_amount as u128)
-            .checked_mul(ctx.accounts.target_config.output_fee_amount as u128)
+            .checked_mul(output_fee_bps as u128)
             .and_then(|product| product.checked_div(10000))
             .and_then(|result| result.try_into().ok())
             .ok_or(error!(SwapError::CalculationFailure))?;
@@ -123,6 +125,12 @@ pub struct ProxySwapBaseInput<'info> {
 
     /// The user performing the swap
     pub payer: Signer<'info>,
+
+    /// Admin must sign to authorize the swap with specific fees
+    #[account(
+        constraint = admin.key() == target_config.admin_key @ SwapError::UnauthorizedAdmin
+    )]
+    pub admin: Signer<'info>,
 
     ///////////////////////// TARGET CONFIG ACCOUNT ///////////////////////
     /// The target configuration account containing fee settings
@@ -216,4 +224,6 @@ pub enum SwapError {
     InsufficientAmount,
     #[msg("Fee calculation failed due to overflow or conversion error")]
     CalculationFailure,
+    #[msg("Unauthorized: Only admin can execute this swap")]
+    UnauthorizedAdmin,
 }

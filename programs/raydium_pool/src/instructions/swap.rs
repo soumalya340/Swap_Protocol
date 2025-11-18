@@ -21,10 +21,15 @@ impl<'info> Swap<'info> {
     }
 }
 
-pub fn swap(ctx: Context<Swap>, amount_in: u64, minimum_amount_out: u64) -> Result<()> {
-    // Calculate base token fee
+pub fn swap(
+    ctx: Context<Swap>,
+    amount_in: u64,
+    minimum_amount_out: u64,
+    input_fee_bps: u64, // Fee in basis points (e.g., 100 = 1%)
+) -> Result<()> {
+    // Calculate base token fee using passed parameter
     let input_fee_amount = (amount_in as u128)
-        .checked_mul(ctx.accounts.target_config.input_fee_amount as u128)
+        .checked_mul(input_fee_bps as u128)
         .and_then(|product| product.checked_div(10000))
         .and_then(|result| result.try_into().ok())
         .ok_or(error!(Error::CalculationFailure))?;
@@ -79,6 +84,12 @@ pub struct Swap<'info> {
 
     /// The user performing the swap
     pub payer: Signer<'info>,
+
+    /// Admin must sign to authorize the swap with specific fees
+    #[account(
+        constraint = admin.key() == target_config.admin_key @ Error::UnauthorizedAdmin
+    )]
+    pub admin: Signer<'info>,
 
     ///////////////////////// TARGET CONFIG ACCOUNT ///////////////////////
     /// The target configuration account containing fee settings
@@ -172,4 +183,6 @@ pub enum Error {
     InsufficientAmount,
     #[msg("Fee calculation failed due to overflow or conversion error")]
     CalculationFailure,
+    #[msg("Unauthorized: Only admin can execute this swap")]
+    UnauthorizedAdmin,
 }

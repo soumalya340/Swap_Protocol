@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 pub const ANCHOR_DISCRIMINATOR: usize = 8;
 pub const DEFAULT_ADMIN_KEY: Pubkey =
-        anchor_lang::solana_program::pubkey!("AVc4qQbe4mtPAa7DWBm98AGwWHoPSzfx3rWgruhB677z");
+    anchor_lang::solana_program::pubkey!("AVc4qQbe4mtPAa7DWBm98AGwWHoPSzfx3rWgruhB677z");
 
 /// Handles the initialization of a target configuration.
 /// This function creates a new target configuration account with the specified
@@ -10,43 +10,23 @@ pub const DEFAULT_ADMIN_KEY: Pubkey =
 ///
 /// # Parameters
 /// * `ctx` - The context containing all necessary accounts
-/// * `quote_fee_amount` - The fee amount for quote token swaps (in lamports/smallest unit)
-/// * `base_fee_amount` - The fee amount for base token swaps (in lamports/smallest unit)
-pub fn initialize_config(
-    ctx: Context<InitTargetConfig>,
-    quote_fee_amount: u64,
-    base_fee_amount: u64,
-    admin_key: Pubkey,
-) -> Result<()> {
+/// * `admin_key` - The key of the admin who will be the owner of the target config
+pub fn initialize_config(ctx: Context<InitTargetConfig>, admin_key: Pubkey) -> Result<()> {
     msg!("InitTargetConfig");
 
     let target_config = &mut ctx.accounts.target_config;
 
-    target_config.input_fee_amount = quote_fee_amount;
-    target_config.output_fee_amount = base_fee_amount;
     target_config.admin_key = admin_key;
 
     Ok(())
 }
 
-pub fn update_config(
-    ctx: Context<UpdateTargetConfig>,
-    admin_key: Pubkey,
-    input_fee_amount: u64,
-    output_fee_amount: u64,
-) -> Result<()> {
+pub fn update_config(ctx: Context<UpdateTargetConfig>, admin_key: Pubkey) -> Result<()> {
     msg!("UpdateTargetConfig");
 
     let target_config = &mut ctx.accounts.target_config;
 
     target_config.admin_key = admin_key;
-
-    if input_fee_amount > 0 {
-        target_config.input_fee_amount = input_fee_amount;
-    }
-    if output_fee_amount > 0 {
-        target_config.output_fee_amount = output_fee_amount;
-    }
 
     Ok(())
 }
@@ -93,8 +73,6 @@ pub struct UpdateTargetConfig<'info> {
 #[account]
 #[derive(InitSpace)]
 pub struct TargetConfig {
-    pub input_fee_amount: u64,
-    pub output_fee_amount: u64,
     pub admin_key: Pubkey,
 }
 

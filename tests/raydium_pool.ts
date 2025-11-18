@@ -230,22 +230,13 @@ describe("Raydium Pool", () => {
   }
 
   async function createTargetConfig() {
-    const inputFeeAmountConfig = new BN(100); // 10%
-    const outputFeeAmountConfig = new BN(100); // 10%
-
     try {
       console.log("Creating target config with admin fees...");
       const accountInfo = await program.provider.connection.getAccountInfo(
         targetConfig
       );
       if (!accountInfo) {
-        const tx = await program.methods
-          .initConfig(
-            inputFeeAmountConfig,
-            outputFeeAmountConfig,
-            payer.publicKey
-          )
-          .rpc();
+        const tx = await program.methods.initConfig(payer.publicKey).rpc();
         console.log("Transaction signature: ", tx);
       } else {
         console.log("Admin Already Exists");
@@ -257,8 +248,9 @@ describe("Raydium Pool", () => {
   }
 
   before(async () => {
-    // // Create admin keypair
+    // Create funded keypairs for test users
     alice = await createFundedKeypair(100);
+    bob = await createFundedKeypair(100);
     // Create meme mint
     memeMint = await createMemeMint();
     // Get target config PDA
@@ -349,9 +341,6 @@ describe("Raydium Pool", () => {
   it("Should initialize target config with admin fees", async () => {
     // Set fee amounts in basis points
 
-    const inputFeeAmountConfig = new BN(100); // 10%
-    const outputFeeAmountConfig = new BN(100); // 10%
-
     try {
       console.log("Creating target config with admin fees...");
 
@@ -359,43 +348,27 @@ describe("Raydium Pool", () => {
         targetConfig
       );
       if (!accountInfo) {
-        const tx = await program.methods
-          .initConfig(
-            inputFeeAmountConfig,
-            outputFeeAmountConfig,
-            payer.publicKey
-          )
-          .rpc();
+        const tx = await program.methods.initConfig(payer.publicKey).rpc();
         console.log("Transaction signature: ", tx);
       } else {
         console.log("Admin Already Exists");
       }
       const targetPda = await program.account.targetConfig.fetch(targetConfig);
-      const { inputFeeAmount, outputFeeAmount, adminKey } = targetPda;
-      console.log("Input fee amount: ", inputFeeAmount.toString());
-      console.log("Output fee amount: ", outputFeeAmount.toString());
+      const { adminKey } = targetPda;
       console.log("Admin key: ", adminKey.toBase58());
 
       ///Update the target config with new admin fees
 
       console.log("Updating target config with new admin fees...");
       const newAmount = new BN(0);
-      const tx = await program.methods
-        .updateConfig(payer.publicKey, newAmount, newAmount)
-        .rpc();
+      const tx = await program.methods.updateConfig(payer.publicKey).rpc();
       console.log("Transaction signature: ", tx);
 
       const targetPdaAfter = await program.account.targetConfig.fetch(
         targetConfig
       );
-      const {
-        inputFeeAmount: inputFeeAmountAfter,
-        outputFeeAmount: outputFeeAmountAfter,
-        adminKey: adminKeyAfter,
-      } = targetPdaAfter;
+      const { adminKey: adminKeyAfter } = targetPdaAfter;
 
-      console.log("Input fee amount: ", inputFeeAmountAfter.toString());
-      console.log("Output fee amount: ", outputFeeAmountAfter.toString());
       console.log("Admin key: ", adminKeyAfter.toBase58(), "\n");
     } catch (error) {
       console.error("Error creating target config:", error);
@@ -405,7 +378,7 @@ describe("Raydium Pool", () => {
 
   it("Should swap for Sol to Meme with admin fees", async () => {
     const sender = user;
-    const payer = (sender as any).payer;
+    const admin = (sender as any).payer;
     const connection = provider.connection;
 
     const token0Mint = NATIVE_MINT;
@@ -414,11 +387,14 @@ describe("Raydium Pool", () => {
     // First wrap some SOL and check token balances
     await wrapSol(connection, alice, 10); // Wrap 10 SOL
 
+    const inputFeeBps = 1000; // 1%
+    const outputFeeBps = 100; // 1%
+
     const poolAddress = await poolInfo(token0Mint, token1Mint, false);
     const {
       userToken0Account: adminToken0Account,
       userToken1Account: adminToken1Account,
-    } = await userInfo(connection, payer, token0Mint, token1Mint, "Admin");
+    } = await userInfo(connection, admin, token0Mint, token1Mint, "Admin");
 
     const {
       userToken0Account: aliceToken0Account,
@@ -426,7 +402,7 @@ describe("Raydium Pool", () => {
     } = await userInfo(connection, alice, token0Mint, token1Mint, "Alice");
 
     const { token0Vault, token1Vault, observationState } = await poolSeedInfo(
-      payer,
+      admin,
       token0Mint,
       token1Mint
     );
@@ -448,7 +424,12 @@ describe("Raydium Pool", () => {
 
     // Build the swap instruction
     const swapIx = await program.methods
-      .proxySwapBaseInput(amount_in, new BN(0)) // amount_in and minimum_amount_out
+      .proxySwapBaseInput(
+        amount_in,
+        new BN(0),
+        new BN(inputFeeBps),
+        new BN(outputFeeBps)
+      ) // amount_in and minimum_amount_out
       .accounts({
         // Pool accounts
         ammConfig: ammConfig,
@@ -486,7 +467,7 @@ describe("Raydium Pool", () => {
       const swapTx = await sendAndConfirmTransaction(
         connection,
         transaction,
-        [alice],
+        [alice, admin],
         confirmOptions
       );
 
@@ -523,11 +504,13 @@ describe("Raydium Pool", () => {
   });
   it("Should swap for Meme to SOL ", async () => {
     const sender = user;
-    const payer = (sender as any).payer;
+    const admin = (sender as any).payer;
     const connection = provider.connection;
 
     await createTargetConfig();
     console.log("\nStarting swap for Meme to SOL...\n");
+
+    const inputFeeBps = 100; // 1%
 
     const tokenMemeMint = memeMint;
     const tokenWsolMint = NATIVE_MINT;
@@ -541,7 +524,7 @@ describe("Raydium Pool", () => {
       userToken1Account: adminTokenWsolAccount,
     } = await userInfo(
       connection,
-      payer,
+      admin,
       tokenMemeMint,
       tokenWsolMint,
       "Admin"
@@ -581,7 +564,7 @@ describe("Raydium Pool", () => {
 
     // // Build the swap instruction
     const swapIx = await program.methods
-      .swap(amount_in, new BN(0)) // amount_in and minimum_amount_out
+      .swap(amount_in, new BN(0), new BN(100)) // amount_in, minimum_amount_out, input_fee_bps
       .accounts({
         // Pool accounts
         ammConfig: ammConfig,
@@ -619,7 +602,7 @@ describe("Raydium Pool", () => {
       const swapTx = await sendAndConfirmTransaction(
         connection,
         transaction,
-        [alice],
+        [alice, admin],
         confirmOptions
       );
 
@@ -656,433 +639,138 @@ describe("Raydium Pool", () => {
       throw error;
     }
   });
+  it("Should swap for Bob (non-admin) - Sol to Meme with admin fees", async () => {
+    console.log(
+      `\n Swapping for Bob (non-admin) - Sol to Meme with admin fees\n`
+    );
+    const sender = user;
+    const admin = (sender as any).payer;
+    const connection = provider.connection;
+
+    const token0Mint = NATIVE_MINT;
+    const token1Mint = memeMint;
+
+    // First wrap some SOL and check token balances
+    await wrapSol(connection, bob, 10); // Wrap 10 SOL
+
+    const inputFeeBps = 100; // 1%
+    const outputFeeBps = 100; // 1%
+
+    console.log("Test1.1");
+
+    const poolAddress = await poolInfo(token0Mint, token1Mint, false);
+    const {
+      userToken0Account: adminToken0Account,
+      userToken1Account: adminToken1Account,
+    } = await userInfo(connection, admin, token0Mint, token1Mint, "Admin");
+
+    console.log("Test1.2");
+
+    const {
+      userToken0Account: bobToken0Account,
+      userToken1Account: bobToken1Account,
+    } = await userInfo(connection, bob, token0Mint, token1Mint, "Bob");
+
+    console.log("Test1.3");
+    const { token0Vault, token1Vault, observationState } = await poolSeedInfo(
+      admin,
+      token0Mint,
+      token1Mint
+    );
+
+    // Amount to swap (1 SOL)
+    const amount_in = new BN(1 * LAMPORTS_PER_SOL);
+    // Pool Balance for Sol
+    let amount0 = await getAccount(connection, token0Vault);
+    /// Pool Balance for Meme
+    let amount1 = await getAccount(connection, token1Vault);
+
+    console.log("Starting swap...");
+    console.log("Input amount:", Number(amount_in) / LAMPORTS_PER_SOL, "SOL");
+    console.log("WSOL balance:", Number(amount0.amount) / LAMPORTS_PER_SOL);
+    console.log(
+      "MEME balance:",
+      formatBalanceInMillions(Number(amount1.amount) / LAMPORTS_PER_SOL)
+    );
+
+    // Build the swap instruction
+    const swapIx = await program.methods
+      .proxySwapBaseInput(
+        amount_in,
+        new BN(0),
+        new BN(inputFeeBps),
+        new BN(outputFeeBps)
+      ) // amount_in and minimum_amount_out
+      .accounts({
+        // Pool accounts
+        ammConfig: ammConfig,
+        poolState: poolAddress,
+        inputTokenAccount: bobToken0Account.address,
+        outputTokenAccount: bobToken1Account.address,
+        inputVault: token0Vault,
+        outputVault: token1Vault,
+        inputTokenProgram: TOKEN_PROGRAM_ID,
+        outputTokenProgram: TOKEN_PROGRAM_ID,
+        inputTokenMint: token0Mint,
+        outputTokenMint: token1Mint,
+        observationState: observationState,
+        // Target config and admin fee accounts
+        adminInputTokenAccount: adminToken0Account.address,
+        adminOutputTokenAccount: adminToken1Account.address,
+      })
+      .accountsPartial({
+        payer: bob.publicKey,
+      })
+      .signers([bob])
+      .instruction();
+
+    // Add compute budget instruction for more CUs
+    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+      units: 400_000,
+    });
+
+    // Create and send transaction
+    const transaction = new Transaction().add(computeBudgetIx).add(swapIx);
+
+    console.log("Sending swap transaction...");
+
+    try {
+      const swapTx = await sendAndConfirmTransaction(
+        connection,
+        transaction,
+        [bob, admin],
+        confirmOptions
+      );
+
+      console.log("✅ Swap successful! Transaction signature:", swapTx);
+
+      let newAmount0 = await getAccount(connection, token0Vault);
+
+      amount1 = await getAccount(connection, token1Vault);
+
+      console.log("\n Ending swap for the Pool with:");
+      console.log("WSOL Balance:", Number(amount0.amount) / LAMPORTS_PER_SOL);
+      console.log(
+        "MEME Balance:",
+        formatBalanceInMillions(Number(amount1.amount) / LAMPORTS_PER_SOL)
+      );
+
+      let diff = Number(newAmount0.amount) - Number(amount0.amount);
+
+      console.log(
+        "Difference in WSOL Balance:",
+        diff / LAMPORTS_PER_SOL,
+        "WSOL"
+      );
+
+      await userInfo(connection, alice, token0Mint, token1Mint, "Alice");
+      await userInfo(connection, payer, token0Mint, token1Mint, "Admin");
+    } catch (error) {
+      console.error("❌ Swap failed:", error);
+      if (error.logs) {
+        console.log("Error logs:", error.logs);
+      }
+      throw error;
+    }
+  });
 });
-
-// describe("Raydium Pool for Devnet Execution", () => {
-//   let alice: Keypair;
-//   let targetConfig: PublicKey;
-//   const provider = anchor.AnchorProvider.env();
-//   anchor.setProvider(provider);
-//   const program = anchor.workspace.RaydiumPool as Program<RaydiumPool>; // Set up provider and program
-
-//   const user = provider.wallet;
-//   const payer = (user as any).payer;
-//   // Test configuration
-//   let memeMint: PublicKey;
-//   const confirmOptions = {
-//     skipPreflight: true,
-//   };
-
-//   // Helper function to format balance in millions
-//   function formatBalanceInMillions(balance: number): string {
-//     const millions = balance / 1_000_000;
-//     if (millions >= 1) {
-//       return `${
-//         millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)
-//       }M`;
-//     } else {
-//       return `${millions.toFixed(1)}M`;
-//     }
-//   }
-
-//   async function userInfo(
-//     connection: any,
-//     wallet: any,
-//     token0Mint: any,
-//     token1Mint: any,
-//     userName: string = "User",
-//     isFormatNeeded: boolean = true
-//   ) {
-//     const userToken1Account = await getOrCreateAssociatedTokenAccount(
-//       connection,
-//       wallet,
-//       token1Mint,
-//       wallet.publicKey
-//     );
-//     // 2. Get the user's quote token account (user_quote)
-
-//     const userToken0Account = await getOrCreateAssociatedTokenAccount(
-//       connection,
-//       wallet,
-//       token0Mint,
-//       wallet.publicKey
-//     );
-
-//     const userMemeBalanceAmount =
-//       Number(userToken1Account.amount) / LAMPORTS_PER_SOL;
-
-//     let formattedMemeBalance;
-//     if (isFormatNeeded) {
-//       formattedMemeBalance = formatBalanceInMillions(userMemeBalanceAmount);
-//     }
-
-//     console.log(`${userName} Wallet Meme balance: ${formattedMemeBalance}`);
-
-//     const userQuoteBalanceAmount =
-//       Number(userToken0Account.amount) / LAMPORTS_PER_SOL;
-
-//     console.log(
-//       `${userName} Wallet Quote balance: ${userQuoteBalanceAmount} WSOL`
-//     );
-
-//     return {
-//       userToken0Account,
-//       userToken1Account,
-//     };
-//   }
-
-//   async function poolSeedInfo(payer: any, token0Mint: any, token1Mint: any) {
-//     // Derive Raydium Authority PDA
-//     const POOL_AUTH_SEED = Buffer.from(
-//       anchor.utils.bytes.utf8.encode("vault_and_lp_mint_auth_seed")
-//     );
-//     const [raydiumAuthority] = PublicKey.findProgramAddressSync(
-//       [POOL_AUTH_SEED],
-//       cpSwapProgram
-//     );
-//     // Derive Raydium Pool State PDA
-//     const POOL_SEED = Buffer.from(anchor.utils.bytes.utf8.encode("pool"));
-
-//     const [raydiumPoolState] = PublicKey.findProgramAddressSync(
-//       [
-//         POOL_SEED,
-//         ammConfig.toBuffer(),
-//         token0Mint.toBuffer(), // token_0
-//         token1Mint.toBuffer(), // token_1
-//       ],
-//       cpSwapProgram
-//     );
-//     // Derive Raydium LP Mint PDA
-//     const POOL_LPMINT_SEED = Buffer.from(
-//       anchor.utils.bytes.utf8.encode("pool_lp_mint")
-//     );
-//     const [raydiumLpMint] = PublicKey.findProgramAddressSync(
-//       [POOL_LPMINT_SEED, raydiumPoolState.toBuffer()],
-//       cpSwapProgram
-//     );
-//     // Derive Raydium Token Vaults
-//     const POOL_VAULT_SEED = Buffer.from(
-//       anchor.utils.bytes.utf8.encode("pool_vault")
-//     );
-//     const [token0Vault] = PublicKey.findProgramAddressSync(
-//       [POOL_VAULT_SEED, raydiumPoolState.toBuffer(), token0Mint.toBuffer()],
-//       cpSwapProgram
-//     );
-
-//     const [token1Vault] = PublicKey.findProgramAddressSync(
-//       [POOL_VAULT_SEED, raydiumPoolState.toBuffer(), token1Mint.toBuffer()],
-//       cpSwapProgram
-//     );
-
-//     // Derive Observation State PDA
-//     const ORACLE_SEED = Buffer.from(
-//       anchor.utils.bytes.utf8.encode("observation")
-//     );
-//     const [observationState] = PublicKey.findProgramAddressSync(
-//       [ORACLE_SEED, raydiumPoolState.toBuffer()],
-//       cpSwapProgram
-//     );
-
-//     // Creator LP Token Account (ATA) - derive address only, Raydium will create it
-//     const [creatorLpToken] = PublicKey.findProgramAddressSync(
-//       [
-//         payer.publicKey.toBuffer(),
-//         TOKEN_PROGRAM_ID.toBuffer(),
-//         raydiumLpMint.toBuffer(),
-//       ],
-//       ASSOCIATED_TOKEN_PROGRAM_ID
-//     );
-
-//     return {
-//       creatorLpToken,
-//       raydiumAuthority,
-//       raydiumPoolState,
-//       raydiumLpMint,
-//       token0Vault,
-//       token1Vault,
-//       observationState,
-//     };
-//   }
-
-//   async function poolInfo(
-//     token0Mint: any,
-//     token1Mint: any,
-//     show: boolean = true
-//   ) {
-//     console.log("\n");
-//     // Get pool state
-//     const [poolAddress] = await getPoolAddress(
-//       ammConfig,
-//       token0Mint,
-//       token1Mint,
-//       cpSwapProgram
-//     );
-
-//     if (show) {
-//       const accountInfo = await program.provider.connection.getAccountInfo(
-//         poolAddress
-//       );
-
-//       if (!accountInfo) {
-//         throw new Error("Pool account not found after initialization");
-//       }
-//       const poolState = CpmmPoolInfoLayout.decode(accountInfo.data);
-//       const cpSwapPoolState = {
-//         ammConfig: poolState.configId.toBase58(),
-//         token0Mint: poolState.mintA.toBase58(),
-//         token0Program: poolState.mintProgramA.toBase58(),
-//         token1Mint: poolState.mintB.toBase58(),
-//         token1Program: poolState.mintProgramB.toBase58(),
-//       };
-
-//       console.log("Pool address:", poolAddress.toString());
-//       console.log("\n The Pool State:", cpSwapPoolState);
-//     }
-//     return poolAddress;
-//   }
-
-//   before(async () => {
-//     // const privateKey =
-//     //   "3QVeeeWCg5C9GFPeHMs7WCoc5E8Vh5AyuPzsCQVWbv7P4EN4oLNrME1WnpMkq2vCRLWqHMiWjSFW3uXKtfjZqUaZ";
-
-//     // if (!privateKey) {
-//     //   throw new Error("PRIVATE_KEY environment variable is required");
-//     // }
-//     // const keypairData = bs58.decode(privateKey);
-//     // const secretKey = Uint8Array.from(keypairData);
-//     // const alice = Keypair.fromSecretKey(secretKey);
-//     // console.log("Alice Public key : ", alice.publicKey.toBase58());
-
-//     // const amountInSol = 2;
-//     // const airdropAmount = amountInSol * LAMPORTS_PER_SOL;
-//     // const airdropTx = await provider.connection.requestAirdrop(
-//     //   alice.publicKey,
-//     //   airdropAmount
-//     // );
-//     // await provider.connection.confirmTransaction(airdropTx);
-
-//     // Get target config PDA
-//     [targetConfig] = getTargetConfigPda(program);
-//   });
-
-//   it.skip("Should initialize Raydium pool", async () => {
-//     memeMint = await createMemeMint();
-
-//     const sender = user;
-//     const payer = (sender as any).payer;
-//     const connection = provider.connection;
-
-//     const token0Mint = NATIVE_MINT;
-//     const token1Mint = memeMint;
-
-//     console.log("Starting pool initialization...");
-
-//     const { userToken0Account, userToken1Account } = await userInfo(
-//       connection,
-//       payer,
-//       token0Mint,
-//       token1Mint
-//     );
-
-//     // Create compute budget instruction to request more CUs
-//     const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
-//       units: 400_000, // Request 400k CUs (double the default)
-//     });
-
-//     const amountForLp = 10;
-//     await wrapSol(connection, payer, amountForLp);
-//     const amount0 = new BN(amountForLp * LAMPORTS_PER_SOL);
-//     const amount1 = await getAccount(connection, userToken1Account.address);
-
-//     const { creatorLpToken } = await poolSeedInfo(
-//       payer,
-//       token0Mint,
-//       token1Mint
-//     );
-
-//     // Build the initialization instruction
-//     const initializeIx = await program.methods
-//       .proxyInitialize(amount0, new BN(amount1.amount))
-//       .accounts({
-//         token0Mint: token0Mint,
-//         token1Mint: token1Mint,
-//         ammConfig: ammConfig,
-//         creatorToken0: userToken0Account.address,
-//         creatorToken1: userToken1Account.address,
-//         creatorLpToken: creatorLpToken,
-//       })
-//       .instruction();
-
-//     // Create transaction with both instructions
-//     const transaction = new Transaction().add(computeBudgetIx, initializeIx);
-
-//     // Send transaction with confirmOptions
-//     const tx = await sendAndConfirmTransaction(
-//       connection,
-//       transaction,
-//       [payer],
-//       confirmOptions
-//     );
-//     console.log(
-//       "✅ Pool initialization successful! Transaction signature: ",
-//       tx
-//     );
-//     await userInfo(connection, payer, token0Mint, token1Mint);
-//   });
-//   it.skip("Should initialize target config with admin fees", async () => {
-//     // Set fee amounts in basis points
-//     const inputFeeAmountConfig = new BN(100); // 10%
-//     const outputFeeAmountConfig = new BN(100); // 10%
-//     try {
-//       console.log("Creating target config with admin fees...");
-
-//       const accountInfo = await program.provider.connection.getAccountInfo(
-//         targetConfig
-//       );
-//       if (!accountInfo) {
-//         const tx = await program.methods
-//           .initConfig(
-//             inputFeeAmountConfig,
-//             outputFeeAmountConfig,
-//             payer.publicKey
-//           )
-//           .rpc();
-//         console.log("Transaction signature: ", tx);
-//       } else {
-//         console.log("Admin Already Exists");
-//       }
-//       const targetPda = await program.account.targetConfig.fetch(targetConfig);
-//       const { inputFeeAmount, outputFeeAmount, adminKey } = targetPda;
-//       console.log("Input fee amount: ", inputFeeAmount.toString());
-//       console.log("Output fee amount: ", outputFeeAmount.toString());
-//       console.log("Admin key: ", adminKey.toBase58());
-//     } catch (error) {
-//       console.error("Error creating target config:", error);
-//       throw error;
-//     }
-//   });
-//   it.skip("Swap by Admin", async () => {
-//     console.log("\n\n");
-//     const sender = user;
-//     const payer = (sender as any).payer;
-//     const connection = provider.connection;
-
-//     // First wrap some SOL and check token balances
-//     // Load memeMint address from PublicKey.json
-//     const publicKeyData = JSON.parse(fs.readFileSync("PublicKey.json", "utf8"));
-//     let key = publicKeyData.PublicKey;
-//     let memeMint1 = new PublicKey(key);
-//     console.log("Mint1: ", memeMint1.toBase58());
-
-//     // console.log("MemeMint: ", memeMint.toBase58());
-
-//     const token0Mint = NATIVE_MINT;
-//     const token1Mint = memeMint1;
-//     const poolAddress = await poolInfo(token0Mint, token1Mint, false);
-//     const { userToken0Account, userToken1Account } = await userInfo(
-//       connection,
-//       payer,
-//       token0Mint,
-//       token1Mint,
-//       "Admin"
-//     );
-
-//     // if (Number(userToken0Account.amount) > 1) {
-//     //   await wrapSol(connection, payer, 1); // Wrap 10 SOL
-//     //   console.log("the sol is wrapped");
-//     // }
-
-//     const { token0Vault, token1Vault, observationState } = await poolSeedInfo(
-//       payer,
-//       token0Mint,
-//       token1Mint
-//     );
-//     // Amount to swap (1 SOL)
-//     const amount_in = new BN(0.05 * LAMPORTS_PER_SOL);
-//     // Pool Balance for Sol
-//     let amount0 = await getAccount(connection, token0Vault);
-//     /// Pool Balance for Meme
-//     let amount1 = await getAccount(connection, token1Vault);
-
-//     console.log("Starting swap...");
-//     console.log("WSOL balance:", Number(amount0.amount) / LAMPORTS_PER_SOL);
-//     console.log(
-//       "MEME balance:",
-//       formatBalanceInMillions(Number(amount1.amount) / LAMPORTS_PER_SOL)
-//     );
-
-//     // Build the swap instruction
-//     const swapIx = await program.methods
-//       .proxySwapBaseInput(amount_in, new BN(0)) // amount_in and minimum_amount_out
-//       .accounts({
-//         // Pool accounts
-//         ammConfig: ammConfig,
-//         poolState: poolAddress,
-//         inputTokenAccount: userToken0Account.address,
-//         outputTokenAccount: userToken1Account.address,
-//         inputVault: token0Vault,
-//         outputVault: token1Vault,
-//         inputTokenProgram: TOKEN_PROGRAM_ID,
-//         outputTokenProgram: TOKEN_PROGRAM_ID,
-//         inputTokenMint: token0Mint,
-//         outputTokenMint: token1Mint,
-//         observationState: observationState,
-//         // Target config and admin fee accounts
-//         adminInputTokenAccount: userToken0Account.address,
-//         adminOutputTokenAccount: userToken1Account.address,
-//       })
-//       .accountsPartial({
-//         payer: payer.publicKey,
-//       })
-//       .instruction();
-
-//     // Add compute budget instruction for more CUs
-//     const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
-//       units: 400_000,
-//     });
-
-//     // Create and send transaction
-//     const transaction = new Transaction().add(computeBudgetIx).add(swapIx);
-
-//     console.log("Sending swap transaction...");
-
-//     try {
-//       const swapTx = await sendAndConfirmTransaction(
-//         connection,
-//         transaction,
-//         [payer],
-//         confirmOptions
-//       );
-
-//       console.log("✅ Swap successful! Transaction signature:", swapTx);
-
-//       let newAmount0 = await getAccount(connection, token0Vault);
-
-//       amount1 = await getAccount(connection, token1Vault);
-
-//       console.log("\n Ending swap for the Pool with:");
-//       console.log("WSOL Balance:", Number(amount0.amount) / LAMPORTS_PER_SOL);
-//       console.log(
-//         "MEME Balance:",
-//         formatBalanceInMillions(Number(amount1.amount) / LAMPORTS_PER_SOL)
-//       );
-
-//       let diff = Number(newAmount0.amount) - Number(amount0.amount);
-
-//       console.log(
-//         "Difference in WSOL Balance:",
-//         diff / LAMPORTS_PER_SOL,
-//         "WSOL"
-//       );
-
-//       await userInfo(connection, payer, token0Mint, token1Mint, "Admin");
-//     } catch (error) {
-//       console.error("❌ Swap failed:", error);
-//       if (error.logs) {
-//         console.log("Error logs:", error.logs);
-//       }
-//       throw error;
-//     }
-//   });
-
-// });
