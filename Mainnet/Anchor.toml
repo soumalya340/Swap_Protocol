@@ -7,7 +7,7 @@ skip-lint = false
 
 [programs.localnet]
 raydium_cpmm_cpi = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
-raydium_pool = "D42KWzJLEX3suTfsxF2iPwxoFdza9DH6BynZMeRcY6mT"
+raydium_pool = "Fr1qyT8FjXAxPVc5cx2o2MfgCrchTVcWqUW716yrjZmW"
 
 [registry]
 url = "https://api.apr.dev"
