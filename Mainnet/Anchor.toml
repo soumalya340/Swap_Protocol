@@ -6,13 +6,14 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-raydium_pool = "jfFkhbGTopncgwuT2ER66MN8dqgpNuNm958rRquM9bi"
+raydium_cpmm_cpi = "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
+raydium_pool = "Fr1qyT8FjXAxPVc5cx2o2MfgCrchTVcWqUW716yrjZmW"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

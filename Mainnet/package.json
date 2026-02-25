@@ -1,13 +1,14 @@
 {
   "license": "ISC",
-  "scripts": {
-    "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
-    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
-  },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.0",
     "@raydium-io/raydium-sdk-v2": "^0.2.30-alpha",
     "@solana/spl-token": "^0.4.14"
+  },
+  "scripts": {
+   "test": "anchor test --skip-local-validator",
+   "validator": "solana-test-validator --bpf-program CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C tests/programs/raydium-cpmm.so --clone D4FPEruKEHrG5TenZ2mpDGEfu1iUvTiqBxvpU8HLBvC2 --clone DNXgeM9EiiaAbaWvwjHj9fQQLAX5ZsfHyvmYUNRAdNC8 --url mainnet-beta",
+   "build": "anchor build"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",
